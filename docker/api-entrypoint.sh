@@ -7,5 +7,5 @@ npx prisma migrate deploy --schema=prisma/schema.prisma
 echo "Starting Nirai API..."
 exec npx ts-node \
   --transpile-only \
-  --compiler-options '{"module":"CommonJS","esModuleInterop":true}' \
+  --project apps/api/tsconfig.json \
   apps/api/src/index.ts
