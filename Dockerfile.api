@@ -1,0 +1,44 @@
+# ── Stage 1: Build ──────────────────────────────────────────────
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Copy manifests first for layer caching
+COPY package*.json ./
+COPY apps/api/package.json ./apps/api/
+COPY packages/schemas/package.json ./packages/schemas/
+
+RUN npm install
+
+# Copy source
+COPY apps/api ./apps/api
+COPY packages/schemas ./packages/schemas
+COPY prisma/schema.prisma ./prisma/schema.prisma
+
+# Generate Prisma client
+RUN npx prisma generate --schema=prisma/schema.prisma
+
+# Compile TypeScript
+RUN cd apps/api && npx tsc --outDir dist --module commonjs --target es2020 \
+      --esModuleInterop true --skipLibCheck true 2>/dev/null || true
+
+# ── Stage 2: Runtime ────────────────────────────────────────────
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Create data directory for SQLite persistence
+RUN mkdir -p /app/data
+
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/apps/api ./apps/api
+COPY --from=builder /app/packages/schemas ./packages/schemas
+COPY --from=builder /app/prisma ./prisma
+
+# Entrypoint script
+COPY docker/api-entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+EXPOSE 4000
+
+ENTRYPOINT ["/entrypoint.sh"]

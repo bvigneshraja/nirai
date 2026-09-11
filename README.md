@@ -214,6 +214,94 @@ nirai/
 
 ---
 
+## Docker Setup
+
+The easiest way to run Nirai — no need to install Redis or configure anything manually. Just Docker.
+
+### Prerequisites
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Mac / Windows / Linux)
+
+### Run with Docker Compose
+
+```bash
+git clone https://github.com/bvigneshraja/nirai.git
+cd nirai
+
+# Start all services (API + Web + Redis)
+docker compose up --build
+```
+
+That's it. Open [http://localhost](http://localhost) in your browser.
+
+| Service | URL |
+|---------|-----|
+| Web app | http://localhost |
+| API server | http://localhost:4000 |
+| Redis | localhost:6379 (internal) |
+
+### What it does
+
+| Service | Description |
+|---------|-------------|
+| `redis` | Redis 7 (cache for dashboard stats) |
+| `api` | Fastify API — runs Prisma migrations on startup, then starts the server |
+| `web` | React app built with Vite, served by nginx — proxies `/api` and `/auth` to the API |
+
+### Set a custom JWT secret
+
+```bash
+JWT_SECRET=your_strong_secret_here docker compose up --build
+```
+
+Or create a `.env` file in the repo root:
+
+```env
+JWT_SECRET=your_strong_secret_here
+```
+
+### Persistent data
+
+SQLite is stored in a Docker volume (`sqlite_data`) — your data survives container restarts. Redis data is also persisted via the `redis_data` volume.
+
+### Useful commands
+
+```bash
+# Run in background
+docker compose up -d --build
+
+# View logs
+docker compose logs -f api
+docker compose logs -f web
+
+# Stop everything
+docker compose down
+
+# Stop and wipe all data (destructive!)
+docker compose down -v
+
+# Open a shell inside the API container
+docker compose exec api sh
+
+# Run Prisma Studio from inside the container
+docker compose exec api npx prisma studio --schema=prisma/schema.prisma
+```
+
+### Docker file overview
+
+```
+nirai/
+├── Dockerfile.api      # Multi-stage: install → generate Prisma → runtime
+├── Dockerfile.web      # Multi-stage: Vite build → nginx
+├── docker-compose.yml  # Orchestrates api, web, redis services
+├── .dockerignore       # Excludes node_modules, .db files, .git
+└── docker/
+    ├── api-entrypoint.sh  # Runs migrations then starts the API
+    └── nginx.conf         # Proxies /api & /auth to API, serves SPA
+```
+
+---
+
 ## Available Scripts
 
 Run from the repo root:
